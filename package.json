@@ -5,7 +5,7 @@
   "main": "index.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
-    "startDev": "nodemon --exec babel-node index.js",
+    "startDev": "nodemon --exec babel-node app.js",
     "start": "babel-node app.js",
     "start:movie": "better-npm-run parse:movie",
     "start:person": "better-npm-run parse:person"

@@ -14,6 +14,14 @@ export default function (sequelize, DataTypes) {
     ],
     classMethods: {
       associate(models) {
+        this.belongsToMany(models.Movie, {
+          through: {
+            model: models.MovieStar,
+            unique: false,
+          },
+          foreignKey: 'personId',
+          constraints: false,
+        });
       }
     }
   })

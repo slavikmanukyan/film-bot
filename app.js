@@ -1,5 +1,6 @@
 require('dotenv-extended').load();
 import { init as initDb, Movie, Person, sequelize } from 'lib/db';
+const util = require('util');
 
 var builder = require('botbuilder');
 var restify = require('restify');
@@ -32,17 +33,26 @@ let dataMovies;
 // Main dialog with LUIS
 var recognizer = new builder.LuisRecognizer(LuisModelUrl);
 bot.dialog('/', new builder.IntentDialog({ recognizers: [recognizer] })
-    .matches('greeting', function(session, args, next) {
-        session.sendTyping()
-        if(args.score>0.95) {
-            console.log('probability -> ',args.score);
-            session.send('Hi nigger')
-        }
-        else {
-            console.log('probability -> ', args.score );
-            session.send('Sorry, I did not understand');
-        }
-        })
+    .matches('greeting', [
+        function(session, args, next) {
+            session.sendTyping()
+            if (args.score > 0.5) {
+                console.log('probability -> ',args.score);
+                const name = session.message.user ? session.message.user.name : 'Stranger';
+                builder.Prompts.confirm(session, `Hi ${name}! Do you want to help?`);
+            } else {
+                console.log('probability -> ', args.score );
+                session.send('Sorry, I did not understand');
+            }
+        }, (session, results) => {
+            session.sendTyping()
+
+            if (results.response === true) {
+                session.endDialog('I am a film bot. Ask me to get best films');
+            } else {
+                session.endDialog('Ok! Enjoy ... ;)');
+            }
+        }])
     .matches('getfilm',[
         function(session, args, next) {
         session.sendTyping(); 
@@ -58,6 +68,10 @@ bot.dialog('/', new builder.IntentDialog({ recognizers: [recognizer] })
         };
 
         let genre = {
+
+        };
+
+        let personWhere = {
 
         };
 
@@ -92,6 +106,18 @@ bot.dialog('/', new builder.IntentDialog({ recognizers: [recognizer] })
                         break;
                 }
             }
+            if (entity.type === 'peron_name') {
+                personWhere = {
+                    $and: sequelize.literal(`"People"."nameEnglish" ilike '%${entity.entity.trim()}%'`)
+                    // [
+                    //     {
+                    //         name: { $ilike: `%${entity.entity}%` }
+                    //     }, {
+                    //         nameEnglish: { $ilike: `%${entity.entity}%` }
+                    //     }
+                    // ]
+                }
+            }
         });
 
 
@@ -99,23 +125,27 @@ bot.dialog('/', new builder.IntentDialog({ recognizers: [recognizer] })
         session.send('Let me search some films');
         session.sendTyping();
 
-        console.log({
-            ...filmType,
-            ...year,
-        })
-
         Movie.findAll({
             where: {
                 ...filmType,
                 ...year,
                 ...genre,
+                // ...personWhere,
             },
+            subquery: false,
+            include: [
+                {
+                    model: Person,
+                    subquery: false,
+                }
+            ],
             limit: 500,
             order: [['likes', 'DESC']]
         })
         .then(movies => {
             dataMovies = movies;
-            let random = Math.round(Math.random() * 10 * 454)
+            console.log(movies.length)
+            let random = Math.round(Math.random() * 10 * movies.length)
 
             if (!movies.length) {
                 session.endDialog('Sorry! I didn\'t find any film');
@@ -160,8 +190,7 @@ bot.dialog('/', new builder.IntentDialog({ recognizers: [recognizer] })
                 session.send('Here is another list of films !')
                 session.send(msg);
             } else {
-                session.send('Ok, Thanks')
-                session.endDialog('Bye! ;)');
+                session.endDialog('Ok, Thanks ;)')
             }
         }
     }])
